@@ -72,8 +72,8 @@ async fn handler(
             if e.comment.id.into_inner() != last_comment_id.as_u64().unwrap_or_default() {
                 if let Some(b) = e.comment.body {
                     let co = ChatOptions {
-                        model: ChatModel::GPT35Turbo,
-                        // model: ChatModel::GPT4,
+                        // model: ChatModel::GPT35Turbo,
+                        model: ChatModel::GPT4,
                         restart: false,
                         system_prompt: None,
                     };
