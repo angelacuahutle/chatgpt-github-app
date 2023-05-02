@@ -104,8 +104,8 @@ async fn handler(
 
             let system = "You are a helpful assistant. In your response, you can use simple markdown text.\n\nIf someone greets you without asking a question, you should simply respond \"Hello, I am your assistant on GitHub, built by the Second State team. I am ready for your question now!\"";
             let co = ChatOptions {
-                model: ChatModel::GPT35Turbo,
-                // model: ChatModel::GPT4,
+                // model: ChatModel::GPT35Turbo,
+                model: ChatModel::GPT4,
                 restart: true,
                 system_prompt: Some(system),
             };
