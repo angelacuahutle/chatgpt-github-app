@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use flowsnet_platform_sdk::write_error_log;
 use github_flows::{
     get_octo, listen_to_event,
-    octocrab::{models::events::payload::EventPayload, models::events::payload::IssuesEventAction, issues::IssueHandler},
+    octocrab::{models::events::payload::EventPayload, models::events::payload::IssueCommentEventAction, models::events::payload::IssuesEventAction, issues::IssueHandler},
 };
 use openai_flows::{chat_completion, ChatModel, ChatOptions};
 use std::env;
@@ -12,25 +12,10 @@ use std::env;
 pub async fn run() {
     dotenv().ok();
 
-    let login: String = match env::var("login") {
-        Err(_) => "alabulei1".to_string(),
-        Ok(name) => name,
-    };
-
-    let owner: String = match env::var("owner") {
-        Err(_) => "second-state".to_string(),
-        Ok(name) => name,
-    };
-
-    let repo: String = match env::var("repo") {
-        Err(_) => "chat-with-chatgpt".to_string(),
-        Ok(name) => name,
-    };
-
-    let openai_key_name: String = match env::var("openai_key_name") {
-        Err(_) => "chatmichael".to_string(),
-        Ok(name) => name,
-    };
+    let login = env::var("login").unwrap_or("alabulei1".to_string());
+    let owner = env::var("owner").unwrap_or("second-state".to_string());
+    let repo = env::var("repo").unwrap_or("chat-with-chatgpt".to_string());
+    let openai_key_name = env::var("openai_key_name").unwrap_or("global.free.trial".to_string());
 
     listen_to_event(
         &login,
@@ -68,14 +53,21 @@ async fn handler(
 
     match payload {
         EventPayload::IssueCommentEvent(e) => {
+            if e.action != IssueCommentEventAction::Created {
+                // Only responds to new comments
+                write_error_log!("Received an ignorable event for issue comment.");
+                return;
+            }
+
             let last_comment_id = store_flows::get("last_created_comment").unwrap_or_default();
             if e.comment.id.into_inner() != last_comment_id.as_u64().unwrap_or_default() {
                 if let Some(b) = e.comment.body {
                     let co = ChatOptions {
-                        // model: ChatModel::GPT35Turbo,
-                        model: ChatModel::GPT4,
+                        model: ChatModel::GPT35Turbo,
+                        // model: ChatModel::GPT4,
                         restart: false,
                         system_prompt: None,
+                        retry_times: 3,
                     };
                     if let Some(r) = chat_completion(
                         openai_key_name,
@@ -94,7 +86,9 @@ async fn handler(
         }
 
         EventPayload::IssuesEvent(e) => {
-            if e.action == IssuesEventAction::Closed {
+            if e.action != IssuesEventAction::Opened {
+                // Only responds to newly opened issues
+                write_error_log!("Received an ignorable event for issues.");
                 return;
             }
 
@@ -104,10 +98,11 @@ async fn handler(
 
             let system = "You are a helpful assistant. In your response, you can use simple markdown text.\n\nIf someone greets you without asking a question, you should simply respond \"Hello, I am your assistant on GitHub, built by the Second State team. I am ready for your question now!\"";
             let co = ChatOptions {
-                // model: ChatModel::GPT35Turbo,
-                model: ChatModel::GPT4,
+                model: ChatModel::GPT35Turbo,
+                // model: ChatModel::GPT4,
                 restart: true,
                 system_prompt: Some(system),
+                retry_times: 3,
             };
 
             if let Some(r) = chat_completion(
